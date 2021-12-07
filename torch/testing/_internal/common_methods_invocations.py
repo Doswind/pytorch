@@ -9406,6 +9406,7 @@ op_db: List[OpInfo] = [
                    dtypes=all_types_and(torch.bool, torch.bfloat16),
                    dtypesIfCUDA=all_types_and(torch.bool, torch.half, torch.bfloat16),
                    safe_casts_outputs=True,
+                   supports_forward_ad=True,
                    sample_inputs_func=sample_inputs_i0_i1),
     UnaryUfuncInfo('special.i0e',
                    aten_name='special_i0e',
@@ -9418,6 +9419,7 @@ op_db: List[OpInfo] = [
                    dtypes=all_types_and(torch.bool, torch.bfloat16),
                    dtypesIfCUDA=all_types_and(torch.bool, torch.half, torch.bfloat16),
                    sample_inputs_func=sample_inputs_i0_i1,
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     UnaryUfuncInfo('special.i1',
                    aten_name='special_i1',
@@ -9426,6 +9428,7 @@ op_db: List[OpInfo] = [
                    dtypes=all_types_and(torch.bool),
                    dtypesIfCUDA=all_types_and(torch.bool),
                    sample_inputs_func=sample_inputs_i0_i1,
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     UnaryUfuncInfo('special.i1e',
                    aten_name='special_i1e',
@@ -9433,6 +9436,7 @@ op_db: List[OpInfo] = [
                    dtypes=all_types_and(torch.bool),
                    dtypesIfCUDA=all_types_and(torch.bool),
                    sample_inputs_func=sample_inputs_i0_i1,
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     UnaryUfuncInfo('special.ndtr',
                    aten_name='special_ndtr',
@@ -9441,6 +9445,7 @@ op_db: List[OpInfo] = [
                    ref=scipy.special.ndtr if TEST_SCIPY else _NOTHING,
                    dtypes=all_types_and(torch.bool, torch.bfloat16),
                    dtypesIfCUDA=all_types_and(torch.bool, torch.bfloat16, torch.float16),
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     BinaryUfuncInfo('floor_divide',
                     dtypes=all_types_and(torch.half, torch.bfloat16),
@@ -10067,12 +10072,14 @@ op_db: List[OpInfo] = [
            dtypesIfCUDA=all_types_and(torch.float16),
            # TODO: some signatures of median do support out
            supports_out=False,
+           supports_forward_ad=True,
            sample_inputs_func=partial(sample_inputs_reduction, supports_multiple_dims=False)),
     OpInfo('nanmedian',
            dtypes=all_types_and(torch.bfloat16),
            dtypesIfCUDA=all_types_and(torch.float16),
            # TODO: some signatures of nanmedian do support out
            supports_out=False,
+           supports_forward_ad=True,
            sample_inputs_func=partial(sample_inputs_reduction, supports_multiple_dims=False)),
     OpInfo('var_mean',
            dtypes=floating_and_complex_types_and(torch.half, torch.bfloat16),
@@ -10171,17 +10178,27 @@ op_db: List[OpInfo] = [
     OpInfo('quantile',
            dtypes=floating_types(),
            sample_inputs_func=sample_inputs_reduction_quantile,
+           supports_forward_ad=True,
            skips=(
                # Pre-existing condition; Needs to be fixed
                DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_composite_compliance'),
+               # This is a composite op that `sort` enables, but got: Trying to set a forward gradient
+               # that has a different size than that of the original Tensor, this is not supported.
+               # Tensor is of size [] while the given forward gradient is of size [1].
+               DecorateInfo(unittest.expectedFailure, 'TestGradients', 'test_forward_mode_AD'),
            ),
            ),
     OpInfo('nanquantile',
            dtypes=floating_types(),
            sample_inputs_func=sample_inputs_reduction_quantile,
+           supports_forward_ad=True,
            skips=(
                # Pre-existing condition; Needs to be fixed
                DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_composite_compliance'),
+               # This is a composite op that `sort` enables, but got: Trying to set a forward gradient
+               # that has a different size than that of the original Tensor, this is not supported.
+               # Tensor is of size [] while the given forward gradient is of size [1].
+               DecorateInfo(unittest.expectedFailure, 'TestGradients', 'test_forward_mode_AD'),
            ),
            ),
     BinaryUfuncInfo(
@@ -10397,6 +10414,7 @@ op_db: List[OpInfo] = [
                torch.as_strided(x, size, stride, storage_offset=storage_offset),
            dtypes=all_types_and_complex_and(torch.bool, torch.float16, torch.bfloat16),
            supports_out=False,
+           supports_forward_ad=True,
            sample_inputs_func=sample_inputs_as_strided,
            skips=(
                # FIXME: AssertionError: False is not true : Tensors failed to compare as equal!
@@ -10976,7 +10994,7 @@ op_db: List[OpInfo] = [
             np.maximum(0., x) + np.minimum(0., alpha * (np.exp(x) - 1)),
         dtypes=floating_types(),
         dtypesIfCUDA=floating_types_and(torch.float16, torch.bfloat16),
-        supports_forward_ad=False,
+        supports_forward_ad=True,
         supports_autograd=True,
         assert_autodiffed=False,
         supports_gradgrad=True,
@@ -10986,6 +11004,8 @@ op_db: List[OpInfo] = [
         inplace_variant=lambda x, alpha=1.0:
             torch.nn.functional.elu(x, alpha, inplace=True),
         decorators=[
+            # Not implemented yet
+            DecorateInfo(unittest.expectedFailure, 'TestGradients', 'test_inplace_forward_mode_AD'),
             DecorateInfo(
                 toleranceOverride({
                     torch.float16: tol(atol=1e-03, rtol=1.2e-03),
@@ -11022,7 +11042,7 @@ op_db: List[OpInfo] = [
             np.maximum(0., x) + np.minimum(0., alpha * (np.exp(x / alpha) - 1)),
         dtypes=floating_types(),
         dtypesIfCUDA=floating_types_and(torch.float16, torch.bfloat16),
-        supports_forward_ad=False,
+        supports_forward_ad=True,
         supports_autograd=True,
         assert_autodiffed=False,
         supports_gradgrad=True,
@@ -11032,6 +11052,8 @@ op_db: List[OpInfo] = [
         inplace_variant=lambda x, alpha=1.0:
             torch.nn.functional.celu(x, alpha, inplace=True),
         decorators=[
+            # Not implemented yet
+            DecorateInfo(unittest.expectedFailure, 'TestGradients', 'test_inplace_forward_mode_AD'),
             DecorateInfo(
                 toleranceOverride({
                     torch.float16: tol(atol=1e-03, rtol=1.2e-03),
@@ -11080,13 +11102,15 @@ op_db: List[OpInfo] = [
             ),
         dtypes=floating_types(),
         dtypesIfCUDA=floating_types_and(torch.float16, torch.bfloat16),
-        supports_forward_ad=False,
+        supports_forward_ad=True,  # depends on 'elu'
         supports_autograd=True,
         assert_autodiffed=False,
         supports_gradgrad=True,
         supports_out=False,
         inplace_variant=lambda x: torch.nn.functional.selu(x, inplace=True),
         decorators=[
+            # Not implemented yet (depends on 'elu_')
+            DecorateInfo(unittest.expectedFailure, 'TestGradients', 'test_inplace_forward_mode_AD'),
             DecorateInfo(
                 toleranceOverride({
                     torch.float16: tol(atol=1e-2, rtol=1.8e-2),
@@ -11156,7 +11180,7 @@ op_db: List[OpInfo] = [
         ref=lambda x: x * np.tanh(reference_softplus(x)),
         dtypes=floating_types(),
         dtypesIfCUDA=floating_types_and(torch.float16, torch.bfloat16),
-        supports_forward_ad=False,
+        supports_forward_ad=True,
         supports_autograd=True,
         assert_autodiffed=False,
         supports_gradgrad=True,
@@ -11230,6 +11254,7 @@ op_db: List[OpInfo] = [
            dtypes=all_types_and(torch.bfloat16),
            dtypesIfCUDA=all_types_and(torch.bfloat16, torch.float16),
            sample_inputs_func=sample_inputs_topk,
+           supports_forward_ad=True,
            skips=(
                # Topk is not raising a warning when the out is resized
                DecorateInfo(unittest.skip("Skipped!"), 'TestCommon', 'test_out'),
@@ -11354,6 +11379,7 @@ op_db: List[OpInfo] = [
            dtypesIfCUDA=floating_types_and(torch.half, torch.bfloat16),
            supports_gradgrad=True,
            supports_out=False,
+           supports_forward_ad=True,
            autodiff_nonfusible_nodes=["aten::gelu"]),
     OpInfo('nn.functional.relu6',
            aten_name="relu6",
@@ -11488,6 +11514,7 @@ op_db: List[OpInfo] = [
                        DecorateInfo(unittest.skip("Skipped!"), 'TestUnaryUfuncs', 'test_reference_numerics_extremal',
                                     dtypes=[torch.bfloat16]),
                    ),
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     UnaryUfuncInfo('real',
                    ref=np.real,
@@ -12572,6 +12599,7 @@ op_db: List[OpInfo] = [
            dtypesIfCUDA=all_types_and(torch.float16, torch.bfloat16),
            dtypesIfROCM=all_types_and(torch.float16),
            sample_inputs_func=sample_inputs_sort,
+           supports_forward_ad=True,
            skips=(
                # sort does not correctly warn when resizing out= inputs
                DecorateInfo(unittest.skip("Skipped!"), 'TestCommon', 'test_out'),
@@ -12613,6 +12641,7 @@ op_db: List[OpInfo] = [
            sample_inputs_func=sample_inputs_take),
     OpInfo('scatter',
            dtypes=all_types_and_complex_and(torch.bool, torch.half, torch.bfloat16),
+           supports_forward_ad=True,
            sample_inputs_func=sample_inputs_scatter,),
     OpInfo('bfloat16',
            op=lambda x, *args, **kwargs: x.bfloat16(*args, **kwargs),
@@ -13115,6 +13144,7 @@ op_db: List[OpInfo] = [
            dtypesIfCUDA=all_types_and(torch.float16, torch.bfloat16),
            dtypesIfROCM=all_types_and(torch.float16),
            check_batched_gradgrad=False,
+           supports_forward_ad=True,
            skips=(
                #  msort does not correctly warn when resizing out= inputs.
                DecorateInfo(unittest.skip("Skipped!"), 'TestCommon', 'test_out',
@@ -13464,6 +13494,7 @@ op_db: List[OpInfo] = [
                    domain=(0, 1),
                    aten_name='special_ndtri',
                    dtypes=all_types_and(torch.bool),
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     UnaryUfuncInfo('erf',
                    ref=scipy.special.erf if TEST_SCIPY else _NOTHING,
@@ -13480,6 +13511,7 @@ op_db: List[OpInfo] = [
                    assert_autodiffed=True,
                    assert_jit_shape_analysis=True,
                    supports_sparse=True,
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     UnaryUfuncInfo('erfc',
                    ref=scipy.special.erfc if TEST_SCIPY else _NOTHING,
@@ -13489,6 +13521,7 @@ op_db: List[OpInfo] = [
                    dtypes=all_types_and(torch.bool, torch.bfloat16),
                    dtypesIfCUDA=all_types_and(torch.bool, torch.half, torch.bfloat16),
                    assert_autodiffed=True,
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     UnaryUfuncInfo('erfinv',
                    ref=scipy.special.erfinv if TEST_SCIPY else _NOTHING,
@@ -13499,6 +13532,7 @@ op_db: List[OpInfo] = [
                    dtypes=all_types_and(torch.bool, torch.bfloat16),
                    dtypesIfCUDA=all_types_and(torch.bool, torch.half),
                    safe_casts_outputs=True,
+                   supports_forward_ad=True,
                    domain=(-1, 1),
                    skips=(
                        # Reference: https://github.com/pytorch/pytorch/pull/49155#issuecomment-742664611
@@ -13666,6 +13700,7 @@ op_db: List[OpInfo] = [
                    aten_name='special_erfcx',
                    decorators=(toleranceOverride({torch.float32: tol(atol=0, rtol=4e-6), }),),
                    dtypes=all_types_and(torch.bool),
+                   supports_forward_ad=True,
                    safe_casts_outputs=True),
     OpInfo(
         "nn.functional.dropout",
